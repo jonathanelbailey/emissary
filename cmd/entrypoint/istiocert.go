@@ -31,6 +31,10 @@ func newIstioCertSource() IstioCertSource {
 	return &istioCertSource{}
 }
 
+func NewIstioCertSource() IstioCertSource {
+	return newIstioCertSource()
+}
+
 // Watch sets up to watch for an Istio cert on the filesystem, if need be. This
 // is the production implementation, which returns an istioCertWatcher to implement
 // the IstioCertWatcher interface.
@@ -159,6 +163,12 @@ func newIstioCertWatchManager(ctx context.Context, watcher IstioCertWatcher) *is
 	}
 
 	return &istio
+}
+
+// NewIstioCertWatchManager creates a new instance of istioCertWatchManager
+// It provides public access to the private newIstioCertWatchManager function
+func NewIstioCertWatchManager(ctx context.Context, watcher IstioCertWatcher) *istioCertWatchManager {
+	return newIstioCertWatchManager(ctx, watcher)
 }
 
 // Istio TLS certificates are annoying. They come in three parts (only two of

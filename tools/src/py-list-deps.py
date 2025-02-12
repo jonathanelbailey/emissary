@@ -263,7 +263,7 @@ def main(inputdirs: List[str], include_dev: bool = False) -> Set[str]:
     # ... disable it if it's already been enabled during Python start-up
     try:
         import _distutils_hack
-        _distutils_hack.remove_shim()
+        _distutils_hack._remove_shim()
     except ImportError:
         pass
     # ... prevent it from being enabled again

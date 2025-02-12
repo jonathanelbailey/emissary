@@ -343,6 +343,18 @@ type SnapshotHolder struct {
 	firstReconfig bool
 }
 
+func (sh *SnapshotHolder) GetSnapshotChangeCount() int {
+	sh.mutex.Lock()
+	defer sh.mutex.Unlock()
+	return sh.snapshotChangeCount
+}
+
+func (sh *SnapshotHolder) GetUnsentDeltas() []*kates.Delta {
+	sh.mutex.Lock()
+	defer sh.mutex.Unlock()
+	return sh.unsentDeltas
+}
+
 func NewSnapshotHolder(ambassadorMeta *snapshot.AmbassadorMetaInfo) (*SnapshotHolder, error) {
 	disp := gateway.NewDispatcher()
 	err := disp.Register("Gateway", func(untyped kates.Object) (*gateway.CompiledConfig, error) {
@@ -588,6 +600,24 @@ func (sh *SnapshotHolder) IstioUpdate(ctx context.Context, istio *istioCertWatch
 		istio.Update(ctx, icertUpdate, sh.k8sSnapshot)
 	})
 
+	// Create an Unstructured for the secret
+	un := &kates.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      icertUpdate.Name,
+				"namespace": icertUpdate.Namespace,
+			},
+		},
+	}
+
+	// Use newDelta to generate the delta with proper structure
+	delta := kates.NewDelta(GetDeltaType(icertUpdate.Op), un)
+
+	// Add delta to unsentDeltas
+	sh.unsentDeltas = append(sh.unsentDeltas, delta)
+
 	var err error
 	reconcileSecretsTimer.Time(func() {
 		err = ReconcileSecrets(ctx, sh)
@@ -598,6 +628,17 @@ func (sh *SnapshotHolder) IstioUpdate(ctx context.Context, istio *istioCertWatch
 
 	sh.snapshotChangeCount += 1
 	return true, nil
+}
+
+func GetDeltaType(op string) kates.DeltaType {
+	switch op {
+	case "delete":
+		return kates.ObjectDelete
+	case "update":
+		return kates.ObjectUpdate
+	default:
+		return kates.ObjectAdd
+	}
 }
 
 func (sh *SnapshotHolder) Notify(
